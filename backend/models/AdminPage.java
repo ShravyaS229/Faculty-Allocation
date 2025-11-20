@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 public class AdminPage extends Application {
 
     private final List<Faculty> facultyList = new ArrayList<>();
-    private final Set<Integer> absentFacultyIds = new HashSet<>(); // predefine absent if needed
+    private final Set<Integer> absentFacultyIds = new HashSet<>();
     private static final int CAPACITY_PER_ROOM = 30;
 
     @Override
@@ -27,6 +27,9 @@ public class AdminPage extends Application {
 
         TableColumn<ResultRow, String> dateCol = new TableColumn<>("Date");
         dateCol.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().date));
+
+        TableColumn<ResultRow, String> timeCol = new TableColumn<>("Time");
+        timeCol.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().time));
 
         TableColumn<ResultRow, String> roomCol = new TableColumn<>("Room No");
         roomCol.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().room));
@@ -43,52 +46,55 @@ public class AdminPage extends Application {
         TableColumn<ResultRow, String> desigCol = new TableColumn<>("Designation");
         desigCol.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().designation));
 
-        table.getColumns().addAll(dateCol, roomCol, semCol, subjectCol, facCol, desigCol);
+        table.getColumns().addAll(dateCol, timeCol, roomCol, semCol, subjectCol, facCol, desigCol);
         table.setItems(data);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
         VBox root = new VBox(10, table);
         root.setPadding(new Insets(10));
-        Scene scene = new Scene(root, 900, 600);
+        Scene scene = new Scene(root, 1000, 600);
         stage.setScene(scene);
         stage.setTitle("Exam Day Allocation");
         stage.show();
     }
 
-    // ----------------- Allocation Logic -----------------
     private List<ResultRow> runAllocationForFullDay() {
-        Map<String, List<Subject>> subjectsBySem = buildSubjects();
 
         List<Slot> slots = Arrays.asList(
-                new Slot("2025-11-17", "VII", "09:00 - 10:00"),
-                new Slot("2025-11-17", "V", "10:30 - 11:30"),
-                new Slot("2025-11-17", "III", "11:45 - 12:45"),
-                new Slot("2025-11-17", "VII", "13:00 - 14:00"),
-                new Slot("2025-11-17", "V", "14:15 - 15:15"),
-                new Slot("2025-11-17", "III", "15:30 - 16:30")
+            // III Semester Timetable
+            new Slot("2025-11-17", "III", "11:45 - 12:45", Collections.singletonList(new Subject("MA2001-1", "Statistics"))),
+            new Slot("2025-11-17", "III", "15:20 - 16:20", Collections.singletonList(new Subject("IS2101-1", "Computer Organization and Design"))),
+            new Slot("2025-11-18", "III", "11:45 - 12:45", Collections.singletonList(new Subject("CS2001-1", "Data Structures"))),
+            new Slot("2025-11-18", "III", "15:20 - 16:20", Collections.singletonList(new Subject("IS1102-2", "Introduction to Data Science"))),
+            new Slot("2025-11-19", "III", "11:45 - 12:45", Collections.singletonList(new Subject("CS2002-1", "Object Oriented Programming"))),
+
+            // Existing sample slots (V & VII Semesters)
+            new Slot("2025-11-17", "VII", "09:15 - 10:15", Collections.singletonList(new Subject("IS3002-1","Ethical Hacking and Network Defense"))),
+            new Slot("2025-11-17", "V", "10:30 - 11:30", Collections.singletonList(new Subject("IS3001-1","Data Communication and Networking"))),
+            new Slot("2025-11-17", "VII", "13:00 - 14:00", Collections.singletonList(new Subject("MG1002-1","Financial Management"))),
+            new Slot("2025-11-17", "V", "14:10 - 15:10", Collections.singletonList(new Subject("IS3101-1","Operating Systems Fundamentals")))
         );
 
-        Map<String, Integer> studentsPerSem = Map.of("III", 400, "V", 340, "VII", 260);
+        Map<String, Integer> studentsPerSem = Map.of("III", 360, "V", 340, "VII", 260);
         Map<String, Integer> roomsNeeded = new HashMap<>();
         studentsPerSem.forEach((sem, total) -> roomsNeeded.put(sem, ceilDiv(total, CAPACITY_PER_ROOM)));
 
         List<ResultRow> output = new ArrayList<>();
 
-        // Faculty pools
         List<Faculty> juniors = facultyList.stream().filter(f -> !f.isSenior() && !absentFacultyIds.contains(f.getId())).collect(Collectors.toList());
-        List<Faculty> seniors = facultyList.stream().filter(f -> f.isSenior() && !absentFacultyIds.contains(f.getId())).collect(Collectors.toList());
+        List<Faculty> seniors = facultyList.stream().filter(Faculty::isSenior).filter(f -> !absentFacultyIds.contains(f.getId())).collect(Collectors.toList());
 
         int roomStartNo = 101;
 
         for (Slot slot : slots) {
-            int roomsForSem = roomsNeeded.get(slot.semester);
-            List<String> rooms = new ArrayList<>();
-            for (int i = 0; i < roomsForSem; i++) {
-                rooms.add(String.valueOf(roomStartNo + i));
-            }
-            roomStartNo += roomsForSem;
+            if (slot.subjects.isEmpty()) continue;
 
-            List<Subject> semSubjects = subjectsBySem.getOrDefault(slot.semester, Collections.emptyList());
-            Subject subjectForSlot = semSubjects.get(new Random().nextInt(semSubjects.size()));
+            int roomsForSem = roomsNeeded.getOrDefault(slot.semester, 0);
+            if (roomsForSem == 0) roomsForSem = 1; // At least 1 room
+
+            List<String> rooms = new ArrayList<>();
+            for (int i = 0; i < roomsForSem; i++) rooms.add(String.valueOf(roomStartNo + i));
+            roomStartNo += roomsForSem;
 
             List<Faculty> available = new ArrayList<>();
             available.addAll(juniors);
@@ -96,53 +102,23 @@ public class AdminPage extends Application {
 
             int idx = 0;
             for (String room : rooms) {
+                String subjectText = slot.subjects.stream()
+                        .map(s -> s.code + " - " + s.name)
+                        .collect(Collectors.joining(", "));
+
                 if (idx < available.size()) {
                     Faculty assigned = available.get(idx);
-                    output.add(new ResultRow(slot.date, room, slot.semester,
-                            subjectForSlot.code + " - " + subjectForSlot.name,
-                            assigned.getName(), assigned.getDesignation()));
+                    output.add(new ResultRow(slot.date, slot.time, room, slot.semester,
+                            subjectText, assigned.getName(), assigned.getDesignation()));
                     idx++;
                 } else {
-                    output.add(new ResultRow(slot.date, room, slot.semester,
-                            subjectForSlot.code + " - " + subjectForSlot.name,
-                            "UNASSIGNED", "-"));
+                    output.add(new ResultRow(slot.date, slot.time, room, slot.semester,
+                            subjectText, "UNASSIGNED", "-"));
                 }
             }
         }
-        return output;
-    }
 
-    private Map<String, List<Subject>> buildSubjects() {
-        Map<String, List<Subject>> m = new HashMap<>();
-        m.put("III", Arrays.asList(
-                new Subject("MA2001-1","Statistics and Probability Theory"),
-                new Subject("IS2101-1","Computer Organization and Design"),
-                new Subject("CS2001-1","Data Structures"),
-                new Subject("IS1102-2","Introduction to Data Science"),
-                new Subject("CS2002-1","Object Oriented Programming")
-        ));
-        m.put("V", Arrays.asList(
-                new Subject("IS3001-1","Data Communication and Networking"),
-                new Subject("IS3101-1","Operating Systems Fundamentals"),
-                new Subject("IS2002-1","Machine Learning Foundations"),
-                new Subject("IS2212-1","Business Intelligence and Its Applications"),
-                new Subject("IS3241-1","Cloud Computing"),
-                new Subject("IS2201-1","Information Storage Management"),
-                new Subject("IS3242-1","Graphics and Animation"),
-                new Subject("HU1010-1","Research Methodology")
-        ));
-        m.put("VII", Arrays.asList(
-                new Subject("IS3002-1","Ethical Hacking and Network Defense"),
-                new Subject("MG1002-1","Financial Management"),
-                new Subject("IS4224-1","Software Defined Networks"),
-                new Subject("IS2213-1","Object Oriented Modelling and Design"),
-                new Subject("IS1201-1","Total Quality Management"),
-                new Subject("IS2314-1","Software Architecture & Design Patterns"),
-                new Subject("IS3202-1","User Interface Design"),
-                new Subject("IS3334-1","Social and Web Analytics"),
-                new Subject("OEC","Open Elective Course")
-        ));
-        return m;
+        return output;
     }
 
     private void preloadFaculty() {
@@ -192,7 +168,6 @@ public class AdminPage extends Application {
         launch(args);
     }
 
-    // ------------------ Classes ------------------
     private static class Faculty {
         private final int id;
         private final String name;
@@ -216,14 +191,18 @@ public class AdminPage extends Application {
 
     private static class Slot {
         final String date, semester, time;
-        Slot(String date, String semester, String time) { this.date = date; this.semester = semester; this.time = time; }
+        final List<Subject> subjects;
+        Slot(String date, String semester, String time, List<Subject> subjects) {
+            this.date = date; this.semester = semester; this.time = time; this.subjects = subjects;
+        }
     }
 
     private static class ResultRow {
-        final String date, room, semester, subject, facultyName, designation;
-        ResultRow(String date, String room, String semester, String subject, String facultyName, String designation) {
-            this.date = date; this.room = room; this.semester = semester;
-            this.subject = subject; this.facultyName = facultyName; this.designation = designation;
+        final String date, time, room, semester, subject, facultyName, designation;
+        ResultRow(String date, String time, String room, String semester, String subject, String facultyName, String designation) {
+            this.date = date; this.time = time; this.room = room;
+            this.semester = semester; this.subject = subject;
+            this.facultyName = facultyName; this.designation = designation;
         }
     }
 }
