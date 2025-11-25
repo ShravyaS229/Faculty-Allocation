@@ -20,9 +20,9 @@ public class AllocationResult {
         this.designation = designation;
     }
 
-    public String getExamDate() { return examDate; }
+    public String getDate() { return examDate; }
     public String getTime() { return time; }
-    public int getRoomNo() { return roomNo; }
+    public int getRoom() { return roomNo; }
     public String getSemester() { return semester; }
     public String getSubject() { return subject; }
     public String getFacultyName() { return facultyName; }

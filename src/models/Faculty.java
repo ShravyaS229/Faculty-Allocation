@@ -4,17 +4,28 @@ public class Faculty {
     private int facultyId;
     private String name;
     private String designation;
-    private boolean isSenior;
+    private String email;  // Add email field
 
-    public Faculty(int facultyId, String name, String designation, boolean isSenior) {
+    public Faculty(int facultyId, String name, String designation, String email) {
         this.facultyId = facultyId;
         this.name = name;
         this.designation = designation;
-        this.isSenior = isSenior;
+        this.email = email;
     }
 
-    public int getFacultyId() { return facultyId; }
-    public String getName() { return name; }
-    public String getDesignation() { return designation; }
-    public boolean isSenior() { return isSenior; }
+    public int getFacultyId() {
+        return facultyId;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getDesignation() {
+        return designation;
+    }
+
+    public String getEmail() {   // <-- Add this getter
+        return email;
+    }
 }
