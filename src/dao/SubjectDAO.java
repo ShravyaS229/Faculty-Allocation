@@ -1,32 +1,27 @@
 package src.dao;
-
 import src.DBConnection;
+
 import src.models.Subject;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class SubjectDAO {
-    public List<Subject> getSubjectsBySemester(String sem) {
+
+    public List<Subject> getSubjectsBySemester(String semester) {
         List<Subject> list = new ArrayList<>();
-        // In a real scenario, you might want to join with slots to only get subjects 
-        // scheduled for that day/time, but here we assume all subjects in the semester 
-        // need to be allocated rooms/invigilators across the rooms available in that slot.
-        String sql = "SELECT * FROM subjects WHERE semester = ?";
-        try {
-            Connection con = DBConnection.getConnection();
-            PreparedStatement ps = con.prepareStatement(sql);
-            ps.setString(1, sem);
+        String sql = "SELECT subject_name FROM subjects WHERE semester=?";
+
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setString(1, semester);
             ResultSet rs = ps.executeQuery();
+
             while (rs.next()) {
-                list.add(new Subject(
-                        rs.getString("subject_code"),
-                        rs.getString("subject_name"),
-                        rs.getString("semester")
-                ));
+                list.add(new Subject(semester, rs.getString("subject_name")));
             }
         } catch (Exception e) {
-            System.out.println("Subject Fetch Error: " + e.getMessage());
+            e.printStackTrace();
         }
         return list;
     }

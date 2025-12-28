@@ -1,7 +1,7 @@
 package src.models;
 
 public class AllocationResult {
-    private String examDate;
+    private String date;
     private String time;
     private int roomNo;
     private String semester;
@@ -9,9 +9,10 @@ public class AllocationResult {
     private String facultyName;
     private String designation;
 
-    public AllocationResult(String examDate, String time, int roomNo, String semester,
-                            String subject, String facultyName, String designation) {
-        this.examDate = examDate;
+    public AllocationResult(String date, String time, int roomNo,
+                            String semester, String subject,
+                            String facultyName, String designation) {
+        this.date = date;
         this.time = time;
         this.roomNo = roomNo;
         this.semester = semester;
@@ -20,9 +21,9 @@ public class AllocationResult {
         this.designation = designation;
     }
 
-    public String getDate() { return examDate; }
+    public String getDate() { return date; }
     public String getTime() { return time; }
-    public int getRoom() { return roomNo; }
+    public int getRoomNo() { return roomNo; }
     public String getSemester() { return semester; }
     public String getSubject() { return subject; }
     public String getFacultyName() { return facultyName; }
